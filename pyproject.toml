@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "fastapi-crud"
+version = "0.1.0"
+description = "Sample FastAPI CRUD API with SQLModel, Pydantic and a container database setup, e.g. PostgreSQL"
+authors = []
+package-mode = false 
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = {extras = ["standard"], version = "^0.115.0"}
+sqlmodel = "^0.0.22"
+psycopg2 = "^2.9.9"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.3"
+black = "^24.8.0"
+isort = "^5.13.2"
+autoflake = "^2.3.1"
+ipython = "^8.28.0"
+mypy = "^1.11.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+disable_error_code = ["override", "call-overload", "no-redef"]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+line_length = 100
+force_single_line = true
+group_by_package = true 
+src_paths = ["api"]
+profile = "black"
+
+[tool.autoflake]
+remove-all-unused-imports = true
+remove-unused-variables = true
+recursive = true 
+in_place = true

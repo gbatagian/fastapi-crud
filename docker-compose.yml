@@ -1,0 +1,32 @@
+services:
+  api:
+    build: .
+    working_dir: /app
+    volumes:
+      - .venv:/app/.venv
+      - api_virtual_env:/app/.venv
+    tty: true
+    command: bash -c "source .env &&\
+        export ENVIRONMENT=docker &&\
+        poetry run fastapi run  --workers 4 api/main.py --reload"
+    ports:
+      - 8000:8000
+    depends_on:
+      - api_db
+  api_db:
+    image: postgres:17.0-bullseye
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-api}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./db/init.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./db/schema_queries/:/opt/schema_queries/
+      - api_database:/var/lib/postgresql/data/
+    ports:
+      - 5432:5432
+
+volumes:
+  api_virtual_env:
+  api_database:
+  
