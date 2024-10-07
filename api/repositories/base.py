@@ -35,18 +35,6 @@ class SessionManager:
         return Session(self.engine)
 
 
-class FetchMethod(Enum):
-    ONE = "one"
-    ONE_OR_NONE = "one_or_none"
-    ALL = "all"
-    FIRST = "first"
-
-    @classmethod
-    @lru_cache
-    def values(cls) -> list[str]:
-        return [e.value for e in cls]
-
-
 class Query(_Select):
     inherit_cache = True
 
@@ -57,7 +45,6 @@ class Query(_Select):
 
         self.out_model = out_model
         self.session = session
-        self._fetch_method: FetchMethod | None = None
 
     def __getattribute__(self, name: str) -> Callable[..., Query] | Any:
         # proxy statement operations, i.e. where, join etc. to self.statement i.e. sqlalchemy.sql.Select
@@ -75,37 +62,45 @@ class Query(_Select):
         return object.__getattribute__(self, name)
 
     def one_or_none(self) -> Type[BaseOutModel] | None:
-        with self.session as session:
-            result = session.exec(statement=self.statement).one_or_none()
+        try:
+            row = self.session.exec(statement=self.statement).scalars().one_or_none()
 
-            if result is None:
+            if row is None:
                 return None
 
-            row = next(element for element in result)  # type: ignore
             return self.out_model.model_validate(row)
+        except Exception as exp:
+            self.session.rollback()
+            raise exp
 
     def one(self) -> Type[BaseOutModel]:
-        with self.session as session:
-            result = session.exec(statement=self.statement).one()
-            row = next(element for element in result)  # type: ignore
+        try:
+            row = self.session.exec(statement=self.statement).scalars().one()
 
             return self.out_model.model_validate(row)
+        except Exception as exp:
+            self.session.rollback()
+            raise exp
 
     def all(self) -> list[Type[BaseOutModel]]:
-        with self.session as session:
-            result = session.exec(statement=self.statement).all()
+        try:
+            rows = self.session.exec(statement=self.statement).all()
 
             return [
-                self.out_model.model_validate(next(element for element in row)) for row in result
+                self.out_model.model_validate(row) for row in rows
             ]
+        except Exception as exp:
+            self.session.rollback()
+            raise exp
 
     def first(self) -> Type[BaseOutModel]:
-        with self.session as session:
-            result = session.exec(statement=self.statement).first()
-            row = next(element for element in result)  # type: ignore
+        try:
+            row = self.session.exec(statement=self.statement).scalars().first()
 
             return self.out_model.model_validate(row)
-
+        except Exception as exp:
+            self.session.rollback()
+            raise exp
 
 class BaseRepository:
     orm_model: Type[SQLModel]
