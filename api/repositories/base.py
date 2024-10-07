@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
 from functools import cached_property
-from functools import lru_cache
 from typing import Any
 from typing import Callable
 from typing import Type
@@ -39,7 +37,10 @@ class Query(_Select):
     inherit_cache = True
 
     def __init__(
-        self, orm_model: Type[SQLModel], out_model: Type[BaseOutModel], session: Session
+        self,
+        orm_model: Type[SQLModel],
+        out_model: Type[BaseOutModel],
+        session: Session,
     ) -> None:
         self.statement = select(orm_model)
 
@@ -63,7 +64,11 @@ class Query(_Select):
 
     def one_or_none(self) -> Type[BaseOutModel] | None:
         try:
-            row = self.session.exec(statement=self.statement).scalars().one_or_none()
+            row = (
+                self.session.exec(statement=self.statement)
+                .scalars()
+                .one_or_none()
+            )
 
             if row is None:
                 return None
@@ -86,9 +91,7 @@ class Query(_Select):
         try:
             rows = self.session.exec(statement=self.statement).all()
 
-            return [
-                self.out_model.model_validate(row) for row in rows
-            ]
+            return [self.out_model.model_validate(row) for row in rows]
         except Exception as exp:
             self.session.rollback()
             raise exp
@@ -101,6 +104,7 @@ class Query(_Select):
         except Exception as exp:
             self.session.rollback()
             raise exp
+
 
 class BaseRepository:
     orm_model: Type[SQLModel]

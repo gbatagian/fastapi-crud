@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi import Depends
 
+from models.portfolio import PortfolioModel
 from models.user import UserModel
 from repositories.base import SessionManager
 from repositories.base import get_db
@@ -17,5 +18,14 @@ def get_user(db: SessionManager = Depends(get_db)) -> list[UserModel]:
 
 
 @user_api.get("/users/{user_id}")
-def get_user(user_id: UUID, db: SessionManager = Depends(get_db)) -> UserModel | None:
+def get_user(
+    user_id: UUID, db: SessionManager = Depends(get_db)
+) -> UserModel | None:
     return UserRepository(db=db).get(user_id)
+
+
+@user_api.get("/users/{user_id}/portfolios")
+def get_user_portfolios(
+    user_id: UUID, db: SessionManager = Depends(get_db)
+) -> PortfolioModel | None:
+    return UserRepository(db=db).get_portfolios(user_id)

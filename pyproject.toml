@@ -30,10 +30,10 @@ ignore_missing_imports = true
 disable_error_code = ["override", "call-overload", "no-redef"]
 
 [tool.black]
-line-length = 100
+line-length = 80
 
 [tool.isort]
-line_length = 100
+line_length = 80
 force_single_line = true
 group_by_package = true 
 src_paths = ["api"]

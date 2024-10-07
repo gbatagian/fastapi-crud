@@ -26,7 +26,9 @@ class OutModelMetaclass(SQLModelMetaclass):
                     continue
                 else:
                     # field is not defined in out model - get definition from ORM model
-                    class_dict["__annotations__"][field_name] = field_info.annotation
+                    class_dict["__annotations__"][
+                        field_name
+                    ] = field_info.annotation
                     if field_info.default is not PydanticUndefined:
                         # add default value is exists
                         class_dict[field_name] = field_info.default
@@ -39,7 +41,9 @@ class BaseOutModel(SQLModel, table=False, metaclass=OutModelMetaclass):
     _orm_model: Type[SQLModel]
 
     @classmethod
-    def model_validate(cls, orm: Type[SQLModel], *args, **kwargs) -> BaseOutModel | None:
+    def model_validate(
+        cls, orm: Type[SQLModel], *args, **kwargs
+    ) -> BaseOutModel | None:
         out_model_instance = super().model_validate(orm, *args, **kwargs)
         out_model_instance._orm_model = orm
         return out_model_instance

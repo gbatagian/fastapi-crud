@@ -23,7 +23,9 @@ class UserORM(SQLModel, table=True):
 
     portfolios: list["PortfolioORM"] = Relationship(
         back_populates="user",
-        sa_relationship_kwargs={"primaryjoin": "UserORM.id == PortfolioORM.user_id"},
+        sa_relationship_kwargs={
+            "primaryjoin": "UserORM.id == PortfolioORM.user_id"
+        },
     )
 
 
