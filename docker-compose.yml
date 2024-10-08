@@ -3,7 +3,8 @@ services:
     build: .
     working_dir: /app
     volumes:
-      - .venv:/app/.venv
+      - ./.venv:/app/.venv
+      - ./api:/app/api
       - api_virtual_env:/app/.venv
     tty: true
     command: bash -c "source .env &&\

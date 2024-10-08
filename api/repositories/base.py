@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any
 from typing import Callable
+from typing import Generator
 from typing import Type
 
 from sqlalchemy.sql import Select as _Select
@@ -16,7 +17,6 @@ from configuration import DB_NAME
 from configuration import DB_PORT
 from configuration import DB_SERVICE_IP
 from configuration import DB_USER
-from models.base import BaseOutModel
 
 
 class SessionManager:
@@ -34,20 +34,19 @@ class SessionManager:
 
 
 class Query(_Select):
-    inherit_cache = True
-
     def __init__(
         self,
         orm_model: Type[SQLModel],
-        out_model: Type[BaseOutModel],
         session: Session,
     ) -> None:
         self.statement = select(orm_model)
 
-        self.out_model = out_model
+        self.orm_model = orm_model
         self.session = session
 
-    def __getattribute__(self, name: str) -> Callable[..., Query] | Any:
+    def __getattribute__(
+        self, name: str
+    ) -> Callable[..., Type[SQLModel] | list[Type[SQLModel]] | None] | Any:
         # proxy statement operations, i.e. where, join etc. to self.statement i.e. sqlalchemy.sql.Select
         statement = object.__getattribute__(self, "statement")
         statement_operation = getattr(statement, name, None)
@@ -62,7 +61,7 @@ class Query(_Select):
 
         return object.__getattribute__(self, name)
 
-    def one_or_none(self) -> Type[BaseOutModel] | None:
+    def one_or_none(self) -> SQLModel | None:
         try:
             row = (
                 self.session.exec(statement=self.statement)
@@ -73,34 +72,28 @@ class Query(_Select):
             if row is None:
                 return None
 
-            return self.out_model.model_validate(row)
+            return row
         except Exception as exp:
             self.session.rollback()
             raise exp
 
-    def one(self) -> Type[BaseOutModel]:
+    def one(self) -> SQLModel:
         try:
-            row = self.session.exec(statement=self.statement).scalars().one()
-
-            return self.out_model.model_validate(row)
+            return self.session.exec(statement=self.statement).scalars().one()
         except Exception as exp:
             self.session.rollback()
             raise exp
 
-    def all(self) -> list[Type[BaseOutModel]]:
+    def all(self) -> list[SQLModel]:
         try:
-            rows = self.session.exec(statement=self.statement).all()
-
-            return [self.out_model.model_validate(row) for row in rows]
+            return self.session.exec(statement=self.statement).scalars().all()
         except Exception as exp:
             self.session.rollback()
             raise exp
 
-    def first(self) -> Type[BaseOutModel]:
+    def first(self) -> SQLModel:
         try:
-            row = self.session.exec(statement=self.statement).scalars().first()
-
-            return self.out_model.model_validate(row)
+            return self.session.exec(statement=self.statement).scalars().first()
         except Exception as exp:
             self.session.rollback()
             raise exp
@@ -108,18 +101,16 @@ class Query(_Select):
 
 class BaseRepository:
     orm_model: Type[SQLModel]
-    out_model: Type[BaseOutModel]
-    session: Type[Session]
+    session: Session
 
-    def query(self):
+    def query(self) -> Query:
         return Query(
             orm_model=self.orm_model,
-            out_model=self.out_model,
             session=self.session,
         )
 
 
-def get_db():
+def get_db() -> Generator[SessionManager]:
     db = SessionManager()
     try:
         yield db

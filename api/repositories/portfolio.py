@@ -1,14 +1,12 @@
 from uuid import UUID
 
 from models.portfolio import PortfolioModel
-from models.portfolio import PortfolioORM
 from repositories.base import BaseRepository
 from repositories.base import SessionManager
 
 
 class PortfolioRepository(BaseRepository):
-    orm_model = PortfolioORM
-    out_model = PortfolioModel
+    orm_model = PortfolioModel
 
     def __init__(self, db: SessionManager) -> None:
         self.session = db.session

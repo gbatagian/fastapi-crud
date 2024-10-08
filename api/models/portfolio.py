@@ -7,13 +7,14 @@ from sqlmodel import Relationship
 from sqlmodel import SQLModel
 
 from enums.portfolio_type import PortfolioType
-from models.base import BaseOutModel
+from models.fields import EnumField
+from schemas.portfolio import PortfolioUpdateModel
 
 if TYPE_CHECKING:
-    from models.user import UserORM
+    from models.user import UserModel
 
 
-class PortfolioORM(SQLModel, table=True):
+class PortfolioModel(SQLModel, table=True):
     __tablename__ = "portfolios"
 
     id: UUID | None = Field(
@@ -25,17 +26,19 @@ class PortfolioORM(SQLModel, table=True):
             "nullable": False,
         },
     )
-    type: str
+    type: PortfolioType = EnumField(PortfolioType)
     user_id: UUID = Field(default=None, foreign_key="users.id")
 
-    # relationships
-    user: "UserORM" = Relationship(
+    user: "UserModel" = Relationship(
         back_populates="portfolios",
         sa_relationship_kwargs={
-            "primaryjoin": "PortfolioORM.user_id == UserORM.id"
+            "primaryjoin": "PortfolioModel.user_id == UserModel.id"
         },
     )
 
+    def update(self, update_data: PortfolioUpdateModel) -> None:
+        for key, value in update_data.model_dump().items():
+            if value is None:
+                continue
 
-class PortfolioModel(BaseOutModel, orm_model=PortfolioORM):  # type: ignore
-    type: PortfolioType
+            setattr(self, key, value)

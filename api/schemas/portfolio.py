@@ -5,10 +5,10 @@ from pydantic import BaseModel
 from enums.portfolio_type import PortfolioType
 
 
-class PortfolioCreate(BaseModel):
+class PortfolioCreateModel(BaseModel):
     type: PortfolioType
     user_id: UUID
 
 
-class PortfolioUpdate(BaseModel):
-    type: PortfolioType
+class PortfolioUpdateModel(BaseModel):
+    type: PortfolioType | None = None
