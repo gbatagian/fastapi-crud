@@ -7,7 +7,7 @@ from sqlmodel import Relationship
 from sqlmodel import SQLModel
 
 from enums.subscription_plan import SubscriptionPlan
-from models.fields import EnumField
+from models.fields import StrEnumField
 from schemas.user import UserUpdateModel
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ class UserModel(SQLModel, table=True):
     name: str
     surname: str
     email: str
-    plan: SubscriptionPlan = EnumField(SubscriptionPlan)
+    plan: SubscriptionPlan = StrEnumField(SubscriptionPlan, max_length=16)
 
     portfolios: list["PortfolioModel"] = Relationship(
         back_populates="user",

@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(56),
     surname VARCHAR(56),
     email VARCHAR(56),
-    plan VARCHAR(24),
+    plan VARCHAR(16),
     PRIMARY KEY (id)
 );
 

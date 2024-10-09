@@ -12,16 +12,12 @@ from sqlmodel import Session
 from sqlmodel import SQLModel
 from sqlmodel import create_engine
 
-from configuration import BD_PWD
-from configuration import DB_NAME
-from configuration import DB_PORT
-from configuration import DB_SERVICE_IP
-from configuration import DB_USER
+from configuration import DB_URL
 
 
 class SessionManager:
     engine = create_engine(
-        url=f"postgresql+psycopg2://{DB_USER}:{BD_PWD}@{DB_SERVICE_IP}:{DB_PORT}/{DB_NAME}",
+        url=f"postgresql+psycopg2://{DB_URL}",
         pool_size=20,
         max_overflow=10,
         pool_timeout=30,

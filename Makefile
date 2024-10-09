@@ -4,6 +4,9 @@ venv:
 run:
 	docker compose up
 
+run-db:
+	docker compose up api_db
+
 build:
 	docker compose up --build 
 
@@ -29,3 +32,14 @@ mypy:
 	mypy api/
 	
 reformat: autoflake black isort
+
+migrations:
+	cd api/ && alembic upgrade head && cd -
+
+new-migration:
+	@if [ -z "$(m)" ]; then \
+		echo "Error: Please provide a message for the migration."; \
+		echo "Usage: make migration m=\"Your migration comment\""; \
+		exit 1; \
+	fi
+	cd api/ && alembic revision --autogenerate -m "$(comment)" && cd -

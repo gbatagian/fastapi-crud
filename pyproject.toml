@@ -10,6 +10,7 @@ python = "^3.10"
 fastapi = {extras = ["standard"], version = "^0.115.0"}
 sqlmodel = "^0.0.22"
 psycopg2 = "^2.9.9"
+alembic = "^1.13.3"
 
 
 [tool.poetry.group.dev.dependencies]

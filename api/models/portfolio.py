@@ -7,7 +7,7 @@ from sqlmodel import Relationship
 from sqlmodel import SQLModel
 
 from enums.portfolio_type import PortfolioType
-from models.fields import EnumField
+from models.fields import StrEnumField
 from schemas.portfolio import PortfolioUpdateModel
 
 if TYPE_CHECKING:
@@ -26,7 +26,7 @@ class PortfolioModel(SQLModel, table=True):
             "nullable": False,
         },
     )
-    type: PortfolioType = EnumField(PortfolioType)
+    type: PortfolioType = StrEnumField(PortfolioType, max_length=16)
     user_id: UUID = Field(default=None, foreign_key="users.id")
 
     user: "UserModel" = Relationship(
