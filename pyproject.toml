@@ -27,6 +27,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 python_version = "3.12"
+exclude = ["alembic"]
 ignore_missing_imports = true
 disable_error_code = ["override", "call-overload", "no-redef"]
 

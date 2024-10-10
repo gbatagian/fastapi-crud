@@ -55,7 +55,6 @@ This project demonstrates a sample CRUD API in Python using FastAPI, SQLModel, A
     d8c3cebc-c225-43f1-a2fe-e0cccd872ad7 | Alex | Smith   | alex.smith@example.com | gold
     (3 rows)
   ```
-* To sync file changes in the `api` container run: `make run` (if already running, stop it and run the command)
 * To re-build the `api` image run: `make build`
 * To stop the containers run: `make down`
 * To format on a clean style the python codebase run: `make reformat`

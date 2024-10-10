@@ -7,7 +7,7 @@ from repositories.base import SessionManager
 
 
 class UserRepository(BaseRepository):
-    orm_model = UserModel
+    orm_model: UserModel = UserModel
 
     def __init__(self, db: SessionManager) -> None:
         self.session = db.session

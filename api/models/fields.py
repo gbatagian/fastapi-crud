@@ -23,6 +23,7 @@ def str_enum_field_factory(
         )
     )
 
+
 def enum_field_factory(
     enum_type: Type[Enum],
     values: list[Any] | None = None,
