@@ -10,7 +10,7 @@ from typing import TypeVar
 from typing import cast
 
 from sqlalchemy.sql import Select as _Select
-from sqlmodel import Session
+from sqlmodel import Session as _Session
 from sqlmodel import SQLModel
 from sqlmodel import create_engine
 
@@ -21,7 +21,15 @@ from logger import logger
 T = TypeVar("T")
 
 
-class SessionManager:
+class Session(_Session):
+    def __init__(
+        self, *args: Any, managed: bool = False, **kwargs: Any
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.managed = managed
+
+
+class SessionConstructor:
     engine = create_engine(
         url=f"postgresql+psycopg2://{DB_URL}",
         pool_size=20,
@@ -30,9 +38,15 @@ class SessionManager:
         pool_recycle=1800,
     )
 
+    def __init__(self, managed: bool = False) -> None:
+        self.managed = managed
+
     @cached_property
     def session(self) -> Session:
-        return Session(self.engine)
+        return Session(self.engine, managed=self.managed)
+
+    def close(self) -> None:
+        self.session.close()
 
 
 class Select(_Select):
@@ -47,9 +61,10 @@ class Select(_Select):
         super().__init__(orm_model, *entities)
 
         self.orm_model = orm_model
-        self.session = session
-        if self.session is None:
-            self.session = SessionManager().session
+        if session is None:
+            self.session = SessionConstructor(managed=False).session
+        else:
+            self.session = session
 
     @staticmethod
     def query_logger(func: Callable[..., T]) -> Callable[..., T]:
@@ -73,6 +88,9 @@ class Select(_Select):
         except Exception as exp:
             self.session.rollback()
             raise exp
+        finally:
+            if self.session.managed is False:
+                self.session.close()
 
     @query_logger
     def one(self) -> SQLModel:
@@ -81,6 +99,9 @@ class Select(_Select):
         except Exception as exp:
             self.session.rollback()
             raise exp
+        finally:
+            if self.session.managed is False:
+                self.session.close()
 
     @query_logger
     def all(self) -> list[SQLModel]:
@@ -89,6 +110,9 @@ class Select(_Select):
         except Exception as exp:
             self.session.rollback()
             raise exp
+        finally:
+            if self.session.managed is False:
+                self.session.close()
 
     @query_logger
     def first(self) -> SQLModel:
@@ -97,6 +121,9 @@ class Select(_Select):
         except Exception as exp:
             self.session.rollback()
             raise exp
+        finally:
+            if self.session.managed is False:
+                self.session.close()
 
 
 class BaseRepository:
@@ -109,15 +136,15 @@ class BaseRepository:
         *entities: Type[SQLModel],
     ) -> Select:
         return Select(
-            orm_model=orm_model,
+            orm_model,
             *entities,
             session=self.session,
         )
 
 
-def get_db() -> Generator[SessionManager]:
-    db = SessionManager()
+def session_manager() -> Generator[SessionConstructor]:
+    db = SessionConstructor(managed=True)
     try:
         yield db
     finally:
-        db.session.close()
+        db.close()
