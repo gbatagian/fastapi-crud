@@ -1,5 +1,7 @@
 from uuid import UUID
 
+from sqlalchemy.orm import selectinload
+
 from models.portfolio import PortfolioModel
 from models.user import UserModel
 from repositories.base import BaseRepository
@@ -13,13 +15,22 @@ class UserRepository(BaseRepository):
         self.session = db.session
 
     def get(self, id: UUID) -> UserModel | None:
-        return self.query().where(self.orm_model.id == id).one_or_none()
+        return (
+            self.select(self.orm_model)
+            .where(self.orm_model.id == id)
+            .one_or_none()
+        )
 
     def all(self) -> list[UserModel]:
-        return self.query().all()
+        return self.select(self.orm_model).all()
 
     def get_portfolios(self, id: UUID) -> list[PortfolioModel]:
-        result = self.get(id=id)
+        result = (
+            self.select(self.orm_model)
+            .where(self.orm_model.id == id)
+            .options(selectinload(UserModel.portfolios))
+            .one_or_none()
+        )
         if result is None:
             return []
 

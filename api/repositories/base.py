@@ -10,7 +10,6 @@ from typing import TypeVar
 from typing import cast
 
 from sqlalchemy.sql import Select as _Select
-from sqlalchemy.sql.expression import select
 from sqlmodel import Session
 from sqlmodel import SQLModel
 from sqlmodel import create_engine
@@ -36,40 +35,28 @@ class SessionManager:
         return Session(self.engine)
 
 
-class Query(_Select):
+class Select(_Select):
+    inherit_cache = True
+
     def __init__(
         self,
         orm_model: Type[SQLModel],
-        session: Session,
+        *entities: Type[SQLModel],
+        session: Session | None = None,
     ) -> None:
-        self.stmt = select(orm_model)
+        super().__init__(orm_model, *entities)
 
         self.orm_model = orm_model
         self.session = session
-
-    def __getattribute__(
-        self, name: str
-    ) -> Callable[..., Type[SQLModel] | list[Type[SQLModel]] | None] | Any:
-        # proxy statement operations, i.e. where, join etc. to self.statement i.e. sqlalchemy.sql.Select
-        statement = object.__getattribute__(self, "stmt")
-        statement_operation = getattr(statement, name, None)
-
-        if statement_operation is not None:
-
-            def execute_operation(*args: Any, **kwargs: Any):
-                self.stmt = statement_operation(*args, **kwargs)
-                return self
-
-            return execute_operation
-
-        return object.__getattribute__(self, name)
+        if self.session is None:
+            self.session = SessionManager().session
 
     @staticmethod
     def query_logger(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(self, *args: Any, **kwargs: Any) -> T:
             if DB_LOG:
-                logger.info(self.stmt)
+                logger.info(self)
             return func(self, *args, **kwargs)
 
         return cast(Callable[..., T], wrapper)
@@ -77,7 +64,7 @@ class Query(_Select):
     @query_logger
     def one_or_none(self) -> SQLModel | None:
         try:
-            row = self.session.exec(statement=self.stmt).scalars().one_or_none()
+            row = self.session.exec(statement=self).scalars().one_or_none()
 
             if row is None:
                 return None
@@ -90,7 +77,7 @@ class Query(_Select):
     @query_logger
     def one(self) -> SQLModel:
         try:
-            return self.session.exec(statement=self.stmt).scalars().one()
+            return self.session.exec(statement=self).scalars().one()
         except Exception as exp:
             self.session.rollback()
             raise exp
@@ -98,7 +85,7 @@ class Query(_Select):
     @query_logger
     def all(self) -> list[SQLModel]:
         try:
-            return self.session.exec(statement=self.stmt).scalars().all()
+            return self.session.exec(statement=self).scalars().all()
         except Exception as exp:
             self.session.rollback()
             raise exp
@@ -106,7 +93,7 @@ class Query(_Select):
     @query_logger
     def first(self) -> SQLModel:
         try:
-            return self.session.exec(statement=self.stmt).scalars().first()
+            return self.session.exec(statement=self).scalars().first()
         except Exception as exp:
             self.session.rollback()
             raise exp
@@ -116,9 +103,14 @@ class BaseRepository:
     orm_model: Type[SQLModel]
     session: Session
 
-    def query(self) -> Query:
-        return Query(
-            orm_model=self.orm_model,
+    def select(
+        self,
+        orm_model: Type[SQLModel],
+        *entities: Type[SQLModel],
+    ) -> Select:
+        return Select(
+            orm_model=orm_model,
+            *entities,
             session=self.session,
         )
 
