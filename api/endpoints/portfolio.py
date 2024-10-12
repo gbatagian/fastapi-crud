@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 
 from models.portfolio import PortfolioModel
-from repositories.base import SessionConstructor
+from repositories.base import SessionMaker
 from repositories.base import session_manager
 from repositories.portfolio import PortfolioRepository
 from schemas.portfolio import PortfolioCreateModel
@@ -15,7 +15,7 @@ portfolio_api = APIRouter()
 
 @portfolio_api.get("/portfolios/{portfolio_id}")
 def get_portfolio(
-    portfolio_id: UUID, db: SessionConstructor = Depends(session_manager)
+    portfolio_id: UUID, db: SessionMaker = Depends(session_manager)
 ) -> PortfolioModel | None:
     return PortfolioRepository(db=db).get(portfolio_id)
 
@@ -23,7 +23,7 @@ def get_portfolio(
 @portfolio_api.post("/portfolios")
 def create_portfolio(
     portfolio_create: PortfolioCreateModel,
-    db: SessionConstructor = Depends(session_manager),
+    db: SessionMaker = Depends(session_manager),
 ) -> PortfolioModel:
     with db.session as session:
         portfolio = PortfolioModel(
@@ -38,7 +38,7 @@ def create_portfolio(
 
 @portfolio_api.delete("/portfolios/{portfolio_id}")
 def delete_portfolio(
-    portfolio_id: UUID, db: SessionConstructor = Depends(session_manager)
+    portfolio_id: UUID, db: SessionMaker = Depends(session_manager)
 ) -> PortfolioModel | None:
     portfolio = PortfolioRepository(db=db).get(portfolio_id)
     if portfolio is None:
@@ -55,7 +55,7 @@ def delete_portfolio(
 def update_portfolio(
     portfolio_id: UUID,
     portfolio_update: PortfolioUpdateModel,
-    db: SessionConstructor = Depends(session_manager),
+    db: SessionMaker = Depends(session_manager),
 ) -> PortfolioModel | None:
     portfolio = PortfolioRepository(db=db).get(portfolio_id)
     if portfolio is None:

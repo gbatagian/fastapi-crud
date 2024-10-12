@@ -5,13 +5,13 @@ from sqlalchemy.orm import selectinload
 from models.portfolio import PortfolioModel
 from models.user import UserModel
 from repositories.base import BaseRepository
-from repositories.base import SessionConstructor
+from repositories.base import SessionMaker
 
 
 class UserRepository(BaseRepository):
     orm_model: UserModel = UserModel
 
-    def __init__(self, db: SessionConstructor) -> None:
+    def __init__(self, db: SessionMaker) -> None:
         self.session = db.session
 
     def get(self, id: UUID) -> UserModel | None:
