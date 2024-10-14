@@ -11,7 +11,7 @@ from typing import TypeVar
 from typing import cast
 
 from sqlalchemy.sql import Select as _Select
-from sqlmodel import Session as _Session
+from sqlmodel import Session
 from sqlmodel import SQLModel
 from sqlmodel import create_engine
 
@@ -22,36 +22,17 @@ from logger import logger
 T = TypeVar("T")
 
 
-class Session(_Session):
-    def __init__(
-        self, *args: Any, _is_managed: bool = False, **kwargs: Any
-    ) -> None:
-        """
-        _is_managed: bool, default = False.  If True, the session is managed by a SessionMaker context.
-            In managed sessions, closing is handled by SessionMaker.close(). Examples:
+class KeepAliveSession(Session):
+    """
+    Session type to indicate sessions that remain open after query execution.
 
-            Managed session:
-
-                def session_manager() -> Generator[SessionMaker]:
-                    db = SessionMaker(managed=True)
-                    try:
-                        yield db
-                    finally:
-                        db.close()
-
-                db = next(session_manager())
-                db.session._is_managed # is True
-
-            Unmanaged session:
-
-                db = SessionMaker()
-                db.session._is_managed # is False
-        """
-        super().__init__(*args, **kwargs)
-        self._is_managed = _is_managed
+    This session type is useful in HTTP contexts where a single session is created 
+    at the start of a request, remains open throughout the request's lifecycle, 
+    and closes upon request completion.
+    """
 
 
-class SessionMaker:
+class SessionManager:
     engine = create_engine(
         url=f"postgresql+psycopg2://{DB_URL}",
         pool_size=20,
@@ -60,44 +41,50 @@ class SessionMaker:
         pool_recycle=1800,
     )
 
-    def __init__(self, _is_managed: bool = False) -> None:
-        """
-        _is_managed: bool, default = False. Set to True if the SessionMaker instance
-            is managed by a context manager.
-
-            Example:
-
-                def session_manager() -> Generator[SessionMaker]:
-                    db = SessionMaker(_is_managed=True)
-                    try:
-                        yield db
-                    finally:
-                        db.close()
-        """
-        self._is_managed = _is_managed
+    def __init__(self, session_type: Type[Session] | None = None) -> None:
+        if session_type is None:
+            self.session_type = Session
+        else:
+            self.session_type = session_type
 
     @cached_property
     def session(self) -> Session:
-        return Session(self.engine, _is_managed=self._is_managed)
+        return self.session_type(self.engine)
 
     def close(self) -> None:
         self.session.close()
 
     @staticmethod
-    def generate_session() -> Session:
-        """Generate a new, unmanaged Session instance."""
-        db = SessionMaker()
+    def new_session() -> Session:
+        db = SessionManager()
+        return db.session
+
+    @staticmethod
+    def mew_keep_alive_session() -> Session:
+        db = SessionManager(session_type=KeepAliveSession)
         return db.session
 
 
+def get_keep_alive_session_manager() -> Generator[SessionManager]:
+    db = SessionManager(session_type=KeepAliveSession)
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 class Select(_Select):
+    """
+    Enhanced Select class with session management.
+    """
+
     inherit_cache = True
 
     def __init__(
         self,
         orm_model: Type[SQLModel],
         *entities: Type[SQLModel],
-        session: Session | None = None,
+        session: KeepAliveSession | None = None,
     ) -> None:
         """
         orm_model: Type[SQLModel], The primary model for the select operation.
@@ -108,7 +95,7 @@ class Select(_Select):
 
         self.orm_model = orm_model
         if session is None:
-            self.session = SessionMaker.generate_session()
+            self.session = SessionManager.new_session()
         else:
             self.session = session
 
@@ -129,23 +116,20 @@ class Select(_Select):
         """
         Context manager for handling session lifecycle.
 
-        For managed sessions, maintains the session open throughout the context.
-        For unmanaged sessions, the session closes upon query completion.
+        - For KeepAliveSession: Keeps the session open after query execution.
+        - For standard Session: Closes the session after query completion.
         """
-        if self.session._is_managed:
-            # Session is managed by a SessionMaker context - it closes when SessionMaker.close()
-            # is called.
-
-            # In HTTP contexts, this allows the same session to persist for the
-            # entire request, closing upon request completion.
+        if isinstance(self.session, KeepAliveSession):
+            # yield the session without opening its context manager to keep it open after
+            # query execution. This allows the session to persist across multiple
+            # operations, e.g. within an HTTP request.
             try:
                 yield self.session
             except Exception as exp:
                 self.session.rollback()
                 raise exp
         else:
-            # Session is not managed by SessionMaker context. It acts as its own context manager,
-            # opening for the query and closing upon completion.
+            # yield the session inside its context manager to close it after query execution.
             with self.session as session:
                 yield session
 
@@ -177,7 +161,7 @@ class Select(_Select):
 
 class BaseRepository:
     orm_model: Type[SQLModel]
-    session: Session
+    session: KeepAliveSession
 
     def select(
         self,
@@ -195,11 +179,3 @@ class BaseRepository:
             *entities,
             session=self.session,
         )
-
-
-def session_manager() -> Generator[SessionMaker]:
-    db = SessionMaker(_is_managed=True)
-    try:
-        yield db
-    finally:
-        db.close()
