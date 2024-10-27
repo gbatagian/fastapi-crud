@@ -5,29 +5,28 @@ from sqlalchemy.orm import selectinload
 from models.portfolio import PortfolioModel
 from models.user import UserModel
 from repositories.base import BaseRepository
-from repositories.base import SessionManager
 
 
 class UserRepository(BaseRepository):
     orm_model: UserModel = UserModel
 
-    def __init__(self, db: SessionManager) -> None:
-        self.session = db.session
-
-    def get(self, id: UUID) -> UserModel | None:
+    @classmethod
+    def get(cls, id: UUID) -> UserModel | None:
         return (
-            self.select(self.orm_model)
-            .where(self.orm_model.id == id)
+            cls.select(cls.orm_model)
+            .where(cls.orm_model.id == id)
             .one_or_none()
         )
 
-    def all(self) -> list[UserModel]:
-        return self.select(self.orm_model).all()
+    @classmethod
+    def all(cls) -> list[UserModel]:
+        return cls.select(cls.orm_model).all()
 
-    def get_portfolios(self, id: UUID) -> list[PortfolioModel]:
+    @classmethod
+    def get_portfolios(cls, id: UUID) -> list[PortfolioModel]:
         result = (
-            self.select(self.orm_model)
-            .where(self.orm_model.id == id)
+            cls.select(cls.orm_model)
+            .where(cls.orm_model.id == id)
             .options(selectinload(UserModel.portfolios))
             .one_or_none()
         )

@@ -9,7 +9,8 @@ services:
     tty: true
     command: bash -c "source .env &&\
         export ENVIRONMENT=docker &&\
-        poetry run fastapi run  --workers 4 api/main.py --reload"
+        poetry run fastapi run api/main.py --reload"
+        # for performance deployment use: poetry run fastapi run --workers 8 api/main.py 
     ports:
       - 8000:8000
     depends_on:
@@ -30,4 +31,3 @@ services:
 volumes:
   api_virtual_env:
   api_database:
-  

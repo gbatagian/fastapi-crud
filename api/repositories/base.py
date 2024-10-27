@@ -1,14 +1,12 @@
-from __future__ import annotations
-
 from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import cached_property
 from functools import wraps
-from typing import Any
 from typing import Callable
 from typing import Generator
+from typing import ParamSpec
 from typing import Type
 from typing import TypeVar
-from typing import cast
 
 from sqlalchemy.sql import Select as _Select
 from sqlmodel import Session
@@ -20,16 +18,7 @@ from configuration import DB_URL
 from logger import logger
 
 T = TypeVar("T")
-
-
-class KeepAliveSession(Session):
-    """
-    Session type to indicate sessions that remain open after query execution.
-
-    This session type is useful in HTTP contexts where a single session is created 
-    at the start of a request, remains open throughout the request's lifecycle, 
-    and closes upon request completion.
-    """
+P = ParamSpec("P")
 
 
 class SessionManager:
@@ -41,15 +30,9 @@ class SessionManager:
         pool_recycle=1800,
     )
 
-    def __init__(self, session_type: Type[Session] | None = None) -> None:
-        if session_type is None:
-            self.session_type = Session
-        else:
-            self.session_type = session_type
-
     @cached_property
     def session(self) -> Session:
-        return self.session_type(self.engine)
+        return Session(self.engine)
 
     def close(self) -> None:
         self.session.close()
@@ -59,18 +42,36 @@ class SessionManager:
         db = SessionManager()
         return db.session
 
-    @staticmethod
-    def mew_keep_alive_session() -> Session:
-        db = SessionManager(session_type=KeepAliveSession)
-        return db.session
+
+session_manager_context: ContextVar[SessionManager | None] = ContextVar(
+    "session_manager_context", default=None
+)
 
 
-def get_keep_alive_session_manager() -> Generator[SessionManager]:
-    db = SessionManager(session_type=KeepAliveSession)
+def get_context_session() -> Session:
+    db = session_manager_context.get()
+    if db is None:
+        raise Exception(
+            "DB context not set, run: "
+            "from repositories.base import SessionManager, session_manager_context; "
+            "db = SessionManager(); "
+            "session_manager_context.set(db)"
+        )
+
+    return db.session
+
+
+@contextmanager
+def managed_session() -> Generator[Session, None, None]:
+    session = get_context_session()
+
     try:
-        yield db
+        yield session
+    except Exception as exp:
+        session.rollback()
+        raise exp
     finally:
-        db.close()
+        session.close()
 
 
 class Select(_Select):
@@ -84,7 +85,7 @@ class Select(_Select):
         self,
         orm_model: Type[SQLModel],
         *entities: Type[SQLModel],
-        session: KeepAliveSession | None = None,
+        session: Session,
     ) -> None:
         """
         orm_model: Type[SQLModel], The primary model for the select operation.
@@ -94,46 +95,29 @@ class Select(_Select):
         super().__init__(orm_model, *entities)
 
         self.orm_model = orm_model
-        if session is None:
-            self.session = SessionManager.new_session()
-        else:
-            self.session = session
+        self.session = session
 
     @staticmethod
-    def query_logger(func: Callable[..., T]) -> Callable[..., T]:
+    def _query_logger(func: Callable[..., T]) -> Callable[..., T]:
         """Decorator to log queries if DB_LOG is enabled."""
 
         @wraps(func)
-        def wrapper(self, *args: Any, **kwargs: Any) -> T:
+        def wrapper(self, *args: P.args, **kwargs: P.kwargs) -> T:
             if DB_LOG:
                 logger.info(self)
             return func(self, *args, **kwargs)
 
-        return cast(Callable[..., T], wrapper)
+        return wrapper
 
     @contextmanager
     def _managed_session(self):
-        """
-        Context manager for handling session lifecycle.
+        try:
+            yield self.session
+        except Exception as exp:
+            self.session.rollback()
+            raise exp
 
-        - For KeepAliveSession: Keeps the session open after query execution.
-        - For standard Session: Closes the session after query completion.
-        """
-        if isinstance(self.session, KeepAliveSession):
-            # yield the session without opening its context manager to keep it open after
-            # query execution. This allows the session to persist across multiple
-            # operations, e.g. within an HTTP request.
-            try:
-                yield self.session
-            except Exception as exp:
-                self.session.rollback()
-                raise exp
-        else:
-            # yield the session inside its context manager to close it after query execution.
-            with self.session as session:
-                yield session
-
-    @query_logger
+    @_query_logger
     def one_or_none(self) -> SQLModel | None:
         with self._managed_session() as session:
             row = session.exec(statement=self).scalars().one_or_none()
@@ -143,17 +127,17 @@ class Select(_Select):
 
             return row
 
-    @query_logger
+    @_query_logger
     def one(self) -> SQLModel:
         with self._managed_session() as session:
             return session.exec(statement=self).scalars().one()
 
-    @query_logger
+    @_query_logger
     def all(self) -> list[SQLModel]:
         with self._managed_session() as session:
             return session.exec(statement=self).scalars().all()
 
-    @query_logger
+    @_query_logger
     def first(self) -> SQLModel:
         with self._managed_session() as session:
             return session.exec(statement=self).scalars().first()
@@ -161,10 +145,11 @@ class Select(_Select):
 
 class BaseRepository:
     orm_model: Type[SQLModel]
-    session: KeepAliveSession
+    session_getter: Callable[[], Session] = get_context_session
 
+    @classmethod
     def select(
-        self,
+        cls,
         orm_model: Type[SQLModel],
         *entities: Type[SQLModel],
     ) -> Select:
@@ -177,5 +162,5 @@ class BaseRepository:
         return Select(
             orm_model,
             *entities,
-            session=self.session,
+            session=cls.session_getter(),
         )
