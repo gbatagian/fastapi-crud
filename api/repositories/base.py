@@ -1,7 +1,10 @@
+from asyncio import Semaphore
+from contextlib import asynccontextmanager
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import cached_property
 from functools import wraps
+from typing import AsyncGenerator
 from typing import Callable
 from typing import Generator
 from typing import ParamSpec
@@ -20,19 +23,25 @@ from logger import logger
 T = TypeVar("T")
 P = ParamSpec("P")
 
+engine = create_engine(
+    url=f"postgresql+psycopg2://{DB_URL}",
+    pool_size=15,
+    max_overflow=5,
+    pool_timeout=30,
+    pool_recycle=60 * 15,
+)
+
+# Increase semaphore capacity based on DB service resources.
+# Semaphore capacity is related to concurrent requests arriving at the database.
+# Raising it too high may overwhelm the DB causing timeouts. Typically, a value between 50-100 is sufficient for high efficiency.
+# Larger values are generally unnecessary unless if you know how to configure a proper setup.
+acquire_connection_semaphore = Semaphore(50)
+
 
 class SessionManager:
-    engine = create_engine(
-        url=f"postgresql+psycopg2://{DB_URL}",
-        pool_size=20,
-        max_overflow=10,
-        pool_timeout=30,
-        pool_recycle=1800,
-    )
-
     @cached_property
     def session(self) -> Session:
-        return Session(self.engine)
+        return Session(engine)
 
     def close(self) -> None:
         self.session.close()
@@ -43,19 +52,19 @@ class SessionManager:
         return db.session
 
 
-session_manager_context: ContextVar[SessionManager | None] = ContextVar(
-    "session_manager_context", default=None
+db_context: ContextVar[SessionManager | None] = ContextVar(
+    "db_context", default=None
 )
 
 
 def get_context_session() -> Session:
-    db = session_manager_context.get()
+    db = db_context.get()
     if db is None:
         raise Exception(
             "DB context not set, run: "
-            "from repositories.base import SessionManager, session_manager_context; "
+            "from repositories.base import SessionManager, db_context; "
             "db = SessionManager(); "
-            "session_manager_context.set(db)"
+            "db_context.set(db)"
         )
 
     return db.session
@@ -72,6 +81,16 @@ def managed_session() -> Generator[Session, None, None]:
         raise exp
     finally:
         session.close()
+
+
+@asynccontextmanager
+async def new_db_instance() -> AsyncGenerator[SessionManager, None]:
+    async with acquire_connection_semaphore:
+        try:
+            db = SessionManager()
+            yield db
+        finally:
+            db.close()
 
 
 class Select(_Select):

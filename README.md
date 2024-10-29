@@ -22,14 +22,14 @@ This project demonstrates a sample CRUD API in Python using FastAPI, SQLModel, A
 * For easy local testing (with the `api_db` container running and `.env` sourced), `ipython` can be used:
     ```python
     >> ipython
-  In [1]: from repositories.base import SessionManager, session_manager_context
+  In [1]: from repositories.base import SessionManager, db_context
 
   In [2]: from repositories.user import UserRepository
 
   In [3]: db = SessionManager()
 
-  In [4]: session_manager_context.set(db)
-  Out[4]: <Token var=<ContextVar name='session_manager_context' default=None at 0x105ed8270> at 0x104b0fc00>
+  In [4]: db_context.set(db)
+  Out[4]: <Token var=<ContextVar name='db_context' default=None at 0x1084ef880> at 0x10732bdc0>
 
   In [5]: UserRepository.get('b04fb2c6-30d3-469e-b6d2-ad1e480c67a4')
   Out[5]: UserModel(email='jane.smith@example.com', plan=<SubscriptionPlan.PREMIUM: 'premium'>, surname='Smith', name='Jane', id=UUID('b04fb2c6-30d3-469e-b6d2-ad1e480c67a4'))
