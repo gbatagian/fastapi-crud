@@ -11,20 +11,20 @@ class UserRepository(BaseRepository):
     orm_model: UserModel = UserModel
 
     @classmethod
-    def get(cls, id: UUID) -> UserModel | None:
-        return (
+    async def get(cls, id: UUID) -> UserModel | None:
+        return await (
             cls.select(cls.orm_model)
             .where(cls.orm_model.id == id)
             .one_or_none()
         )
 
     @classmethod
-    def all(cls) -> list[UserModel]:
-        return cls.select(cls.orm_model).all()
+    async def all(cls) -> list[UserModel]:
+        return await cls.select(cls.orm_model).all()
 
     @classmethod
-    def get_portfolios(cls, id: UUID) -> list[PortfolioModel]:
-        result = (
+    async def get_portfolios(cls, id: UUID) -> list[PortfolioModel]:
+        result = await (
             cls.select(cls.orm_model)
             .where(cls.orm_model.id == id)
             .options(selectinload(UserModel.portfolios))

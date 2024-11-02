@@ -13,15 +13,15 @@ user_api = APIRouter()
 
 
 @user_api.get("/users")
-def get_users() -> list[UserModel]:
-    return UserRepository.all()
+async def get_users() -> list[UserModel]:
+    return await UserRepository.all()
 
 
 @user_api.post("/users")
-def create_portfolio(
+async def create_user(
     user_create: UserCreateModel,
 ) -> UserModel:
-    with managed_session() as session:
+    async with managed_session() as session:
         user = UserModel(
             name=user_create.name,
             surname=user_create.surname,
@@ -29,51 +29,51 @@ def create_portfolio(
             plan=user_create.plan,
         )
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
 
     return user
 
 
 @user_api.get("/users/{user_id}")
-def get_user(
+async def get_user(
     user_id: UUID,
 ) -> UserModel | None:
-    return UserRepository.get(user_id)
+    return await UserRepository.get(user_id)
 
 
 @user_api.put("/users/{user_id}")
-def update_user(
+async def update_user(
     user_id: UUID,
     user_update: UserUpdateModel,
 ) -> UserModel | None:
-    user = UserRepository.get(user_id)
+    user = await UserRepository.get(user_id)
     if user is None:
         return None
 
     user.update(user_update)
 
-    with managed_session() as session:
+    async with managed_session() as session:
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
 
     return user
 
 
 @user_api.delete("/users/{user_id}")
-def delete_portfolio(user_id: UUID) -> UserModel | None:
-    user = UserRepository.get(user_id)
+async def delete_user(user_id: UUID) -> UserModel | None:
+    user = await UserRepository.get(user_id)
     if user is None:
         return None
 
-    with managed_session() as session:
-        session.delete(user)
-        session.commit()
+    async with managed_session() as session:
+        await session.delete(user)
+        await session.commit()
 
     return user
 
 
 @user_api.get("/users/{user_id}/portfolios")
-def get_user_portfolios(user_id: UUID) -> list[PortfolioModel] | None:
-    return UserRepository.get_portfolios(user_id)
+async def get_user_portfolios(user_id: UUID) -> list[PortfolioModel] | None:
+    return await UserRepository.get_portfolios(user_id)

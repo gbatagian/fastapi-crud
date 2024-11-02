@@ -8,13 +8,13 @@ class PortfolioRepository(BaseRepository):
     orm_model: PortfolioModel = PortfolioModel
 
     @classmethod
-    def get(cls, id: UUID) -> PortfolioModel | None:
-        return (
+    async def get(cls, id: UUID) -> PortfolioModel | None:
+        return await (
             cls.select(cls.orm_model)
             .where(cls.orm_model.id == id)
             .one_or_none()
         )
 
     @classmethod
-    def all(cls) -> list[PortfolioModel]:
-        return cls.select(cls.orm_model).all()
+    async def all(cls) -> list[PortfolioModel]:
+        return await cls.select(cls.orm_model).all()

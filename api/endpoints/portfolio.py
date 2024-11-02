@@ -12,56 +12,56 @@ portfolio_api = APIRouter()
 
 
 @portfolio_api.get("/portfolios/{portfolio_id}")
-def get_portfolio(
+async def get_portfolio(
     portfolio_id: UUID,
 ) -> PortfolioModel | None:
-    return PortfolioRepository.get(portfolio_id)
+    return await PortfolioRepository.get(portfolio_id)
 
 
 @portfolio_api.post("/portfolios")
-def create_portfolio(
+async def create_portfolio(
     portfolio_create: PortfolioCreateModel,
 ) -> PortfolioModel:
-    with managed_session() as session:
+    async with managed_session() as session:
         portfolio = PortfolioModel(
             type=portfolio_create.type, user_id=portfolio_create.user_id
         )
         session.add(portfolio)
-        session.commit()
-        session.refresh(portfolio)
+        await session.commit()
+        await session.refresh(portfolio)
 
     return portfolio
 
 
 @portfolio_api.delete("/portfolios/{portfolio_id}")
-def delete_portfolio(
+async def delete_portfolio(
     portfolio_id: UUID,
 ) -> PortfolioModel | None:
-    portfolio = PortfolioRepository.get(portfolio_id)
+    portfolio = await PortfolioRepository.get(portfolio_id)
     if portfolio is None:
         return None
 
-    with managed_session() as session:
-        session.delete(portfolio)
-        session.commit()
+    async with managed_session() as session:
+        await session.delete(portfolio)
+        await session.commit()
 
     return portfolio
 
 
 @portfolio_api.put("/portfolios/{portfolio_id}")
-def update_portfolio(
+async def update_portfolio(
     portfolio_id: UUID,
     portfolio_update: PortfolioUpdateModel,
 ) -> PortfolioModel | None:
-    portfolio = PortfolioRepository.get(portfolio_id)
+    portfolio = await PortfolioRepository.get(portfolio_id)
     if portfolio is None:
         return None
 
     portfolio.update(portfolio_update)
 
-    with managed_session() as session:
+    async with managed_session() as session:
         session.add(portfolio)
-        session.commit()
-        session.refresh(portfolio)
+        await session.commit()
+        await session.refresh(portfolio)
 
     return portfolio
