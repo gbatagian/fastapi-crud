@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from functools import cached_property
 from functools import wraps
+from multiprocessing import cpu_count
 from typing import AsyncGenerator
 from typing import Callable
 from typing import ParamSpec
@@ -17,7 +18,6 @@ from sqlmodel import SQLModel
 from configuration import DB_LOG
 from configuration import DB_URL
 from logger import logger
-from multiprocessing import cpu_count
 
 T = TypeVar("T")
 P = ParamSpec("P")
